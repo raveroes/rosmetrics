@@ -1,0 +1,11 @@
+# Konfigurasi Supabase CLI untuk RosMetrics
+# Jalankan `supabase link --project-ref <PROJECT_REF>` sebelum deploy.
+project_id = "rosmetrics"
+
+[db]
+major_version = 15
+
+# Auth memakai JWT buatan sendiri (HS256, JWT_SECRET) — bukan Supabase Auth —
+# sehingga gateway tidak boleh memverifikasi JWT Supabase untuk function ini.
+[functions.api]
+verify_jwt = false
