@@ -68,7 +68,7 @@ function renderLoginForm() {
   return `
     <div class="auth-form-wrap">
       <h1 class="auth-title">Selamat Datang Kembali</h1>
-      <p class="auth-subtitle">Akses dasbor dan laporan klinis Anda.</p>
+      <p class="auth-subtitle">Akses dasbor dan laporan analitik bisnis Anda.</p>
       ${roleCardsHTML()}
       <div class="form-group">
         <label class="field-label">Email Bisnis</label>
@@ -100,13 +100,13 @@ function renderRegisterForm() {
   return `
     <div class="auth-form-wrap">
       <h1 class="auth-title">Daftarkan Organisasi Anda</h1>
-      <p class="auth-subtitle">Mulai langkah baru menuju manajemen data yang presisi.</p>
+      <p class="auth-subtitle">Mulai langkah baru menuju manajemen data bisnis yang presisi.</p>
       ${roleCardsHTML()}
       <div class="form-group">
         <label class="field-label">Nama UMKM</label>
         <div class="field-wrap">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          <input type="text" id="regName" placeholder="PT. Medika Digital Nusantara" value="${_regTemp.name||''}">
+          <input type="text" id="regName" placeholder="Kopi Sudut Kota" value="${_regTemp.name||''}">
         </div>
       </div>
       <div class="form-group">

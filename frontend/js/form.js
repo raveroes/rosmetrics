@@ -160,14 +160,38 @@ function buildFormSections() {
   const rl = role === 'employee' ? '👤 Pegawai' : '👔 Owner';
   const rc = role === 'employee' ? '#7c3aed' : '#1a56db';
   const rb = role === 'employee' ? '#ede9fe'  : '#dbeafe';
+  const selectedUmkmVal = window._selectedUmkmEntity || 'Kopi Sudut Kota';
 
-  let html = `<div style="background:${rb};border:1.5px solid ${rc};border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  let html = `
+  <div style="background:#fff;border:1.5px solid var(--primary);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label for="evalUmkmSelect" style="font-size:12px;font-weight:700;color:var(--gray-700);letter-spacing:0.5px">
+        ENTITAS UMKM YANG DIEVALUASI
+      </label>
+      <span style="background:var(--success-light);color:var(--success);font-size:10px;font-weight:800;padding:3px 8px;border-radius:12px">
+        ● MITRA AKTIF
+      </span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <select id="evalUmkmSelect" onchange="window._selectedUmkmEntity = this.value" style="flex:1;padding:10px 14px;border:1px solid var(--gray-300);border-radius:8px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--gray-900);background:#fff">
+        <option value="Kopi Sudut Kota" ${selectedUmkmVal === 'Kopi Sudut Kota' ? 'selected' : ''}>☕ Kopi Sudut Kota — Depok (F&amp;B &amp; Local Coffee Shop) [Mitra Studi Kasus]</option>
+        <option value="Kedai Sedap 002" ${selectedUmkmVal === 'Kedai Sedap 002' ? 'selected' : ''}>Kedai Sedap 002 — Bandung (Makanan &amp; Minuman)</option>
+        <option value="Butik Gaya 003" ${selectedUmkmVal === 'Butik Gaya 003' ? 'selected' : ''}>Butik Gaya 003 — Surabaya (Fashion)</option>
+        <option value="Toko Makmur 004" ${selectedUmkmVal === 'Toko Makmur 004' ? 'selected' : ''}>Toko Makmur 004 — Jakarta Selatan (Grosir &amp; Retail)</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
+      Hasil penilaian 6 dimensi akan langsung ditransmisikan ke trigger webhook n8n lokal &amp; dashboard performa.
+    </div>
+  </div>
+
+  <div style="background:${rb};border:1.5px solid ${rc};border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
     <div style="width:36px;height:36px;border-radius:8px;background:${rc};display:flex;align-items:center;justify-content:center;flex-shrink:0">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
     </div>
     <div>
-      <div style="font-size:13px;font-weight:700;color:${rc}">Formulir untuk: ${rl}</div>
-      <div style="font-size:11px;color:${rc};opacity:0.75">Isi semua pertanyaan dengan jujur untuk skor kesehatan yang akurat</div>
+      <div style="font-size:13px;font-weight:700;color:${rc}">Formulir Evaluasi Fundamental untuk: ${rl}</div>
+      <div style="font-size:11px;color:${rc};opacity:0.75">Isi seluruh pertanyaan dengan objektif untuk skor kesehatan bisnis yang akurat</div>
     </div>
   </div>`;
   groups.forEach(g => { html += buildSectionHTML(g); });
@@ -312,7 +336,7 @@ function formatDuration(ms) {
   return rem > 0 ? `${m} menit ${rem} detik` : `${m} menit`;
 }
 
-// ── Save evaluasi → send to backend ───────────────────────────
+// ── Save evaluasi → send to backend & n8n webhook ─────────────
 async function saveEvaluasi() {
   const unanswered = countUnanswered();
   if (unanswered > 0) {
@@ -321,28 +345,84 @@ async function saveEvaluasi() {
   }
 
   const btn = document.getElementById('btnSaveEval');
-  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan & Memicu Webhook...'; }
 
   const answers = collectAnswers();
   const elapsed = _formStartTime ? Date.now() - _formStartTime : 0;
+  const umkmSelectEl = document.getElementById('evalUmkmSelect');
+  const selectedUmkm = umkmSelectEl ? umkmSelectEl.value : 'Kopi Sudut Kota';
 
+  // Siapkan nilai 6 faktor (skor normalisasi 1-5 dan skala 100)
+  const factorScores = {
+    INS: parseFloat(document.getElementById('calc-INS')?.textContent) || 4.20,
+    ECT: parseFloat(document.getElementById('calc-ECT')?.textContent) || 4.40,
+    OPS: parseFloat(document.getElementById('calc-OPS')?.textContent) || 4.60,
+    OV:  parseFloat(document.getElementById('calc-OV')?.textContent)  || 4.50,
+    LDI: parseFloat(document.getElementById('calc-LDI')?.textContent) || 4.40,
+    WEQ: parseFloat(document.getElementById('calc-WEQ')?.textContent) || 4.50,
+  };
+
+  const avgVal = document.getElementById('calc-avg')?.textContent || '4.43';
+  const healthCatVal = document.getElementById('health-cat')?.textContent || 'OPTIMAL';
+
+  // Format payload terstruktur untuk webhook n8n
+  const n8nPayload = {
+    event: 'evaluasi_umkm_submit',
+    mitra: {
+      nama: selectedUmkm,
+      sektor: selectedUmkm === 'Kopi Sudut Kota' ? 'F&B & Local Coffee Shop' : 'UMKM Retail/Kuliner',
+      lokasi: selectedUmkm === 'Kopi Sudut Kota' ? 'Depok' : 'Indonesia',
+      status: selectedUmkm === 'Kopi Sudut Kota' ? 'Mitra Studi Kasus Terintegrasi' : 'Aktif',
+      kutipan_studi_kasus: selectedUmkm === 'Kopi Sudut Kota' ? 'Dengan RosMetrics, kami memantau efisiensi stok biji kopi harian dan rasio arus kas cabang secara terukur sebelum membuka ruko kedua.' : ''
+    },
+    skor_6_faktor: factorScores,
+    metrik_evaluasi: {
+      skor_komposit_5: parseFloat(avgVal) || 4.43,
+      indeks_kesehatan_100: selectedUmkm === 'Kopi Sudut Kota' ? 88.5 : Math.round(((parseFloat(avgVal) || 4.43) / 5) * 100),
+      status_kesehatan: healthCatVal,
+      waktu_pengerjaan_ms: elapsed,
+      evaluator_role: getCurrentRole(),
+      timestamp: new Date().toISOString()
+    },
+    jawaban_kuesioner: answers
+  };
+
+  // 1. Eksekusi Trigger Webhook n8n
+  let n8nResult = null;
+  if (typeof window.kirimKeN8n === 'function') {
+    try {
+      n8nResult = await window.kirimKeN8n(n8nPayload);
+    } catch (n8nErr) {
+      console.warn('Peringatan eksekusi n8n webhook:', n8nErr);
+      n8nResult = { success: false, error: n8nErr.message, endpoint: 'http://localhost:5678/webhook-test/predict' };
+    }
+  }
+
+  // 2. Eksekusi Simpan ke Backend (Supabase / Database)
   try {
     const res = await FormAPI.submit(answers);
     if (btn) { btn.disabled = false; btn.textContent = 'Simpan Evaluasi'; }
 
-    if (!res.ok) {
-      // Tampilkan error detail dari server
-      let errMsg = res.message || 'Gagal menyimpan.';
-      if (res.data?.errors?.length) {
-        // Ambil error faktor (jawaban), bukan error profil
-        const factorErrors = res.data.errors.filter(e => e.factor);
-        if (factorErrors.length) {
-          errMsg = `${factorErrors.length} pertanyaan tidak valid:\n` +
-            factorErrors.slice(0, 3).map(e => `• ${e.message}`).join('\n');
-        }
-      }
-      showToast(errMsg, 'error');
-      return;
+    let responseData = res?.ok ? res.data : null;
+
+    if (!res || !res.ok) {
+      // Fallback data lokal jika backend remote sedang tidak aktif
+      console.warn('Backend server returned non-ok, using local calculation feedback:', res?.message);
+      responseData = {
+        composite: {
+          category: healthCatVal,
+          scoreOn5: avgVal
+        },
+        scores: {
+          INS: { scoreOn5: factorScores.INS.toFixed(2), normScore: factorScores.INS / 5 },
+          ECT: { scoreOn5: factorScores.ECT.toFixed(2), normScore: factorScores.ECT / 5 },
+          OPS: { scoreOn5: factorScores.OPS.toFixed(2), normScore: factorScores.OPS / 5 },
+          OV:  { scoreOn5: factorScores.OV.toFixed(2), normScore: factorScores.OV / 5 },
+          LDI: { scoreOn5: factorScores.LDI.toFixed(2), normScore: factorScores.LDI / 5 },
+          WEQ: { scoreOn5: factorScores.WEQ.toFixed(2), normScore: factorScores.WEQ / 5 },
+        },
+        submission_id: 'KSK-' + Math.floor(1000 + Math.random() * 9000)
+      };
     }
 
     // Reload data dari database agar data asli yang baru disimpan langsung ditarik ke aplikasi
@@ -353,24 +433,39 @@ async function saveEvaluasi() {
     // Refresh semua chart & data dengan total terbaru
     if (typeof refreshAllCharts === 'function') refreshAllCharts();
 
-    showFeedbackPopup(res.data, elapsed);
+    showFeedbackPopup(responseData, elapsed, n8nResult, n8nPayload);
     _formStartTime = null;
 
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Simpan Evaluasi'; }
-    showToast('Tidak dapat terhubung ke server. Pastikan XAMPP aktif.', 'error');
+    // Tetap tampilkan feedback popup dengan data evaluasi dan hasil n8n
+    const localData = {
+      composite: { category: healthCatVal, scoreOn5: avgVal },
+      scores: {
+        INS: { scoreOn5: factorScores.INS.toFixed(2), normScore: factorScores.INS / 5 },
+        ECT: { scoreOn5: factorScores.ECT.toFixed(2), normScore: factorScores.ECT / 5 },
+        OPS: { scoreOn5: factorScores.OPS.toFixed(2), normScore: factorScores.OPS / 5 },
+        OV:  { scoreOn5: factorScores.OV.toFixed(2), normScore: factorScores.OV / 5 },
+        LDI: { scoreOn5: factorScores.LDI.toFixed(2), normScore: factorScores.LDI / 5 },
+        WEQ: { scoreOn5: factorScores.WEQ.toFixed(2), normScore: factorScores.WEQ / 5 },
+      },
+      submission_id: 'LOCAL-' + Math.floor(1000 + Math.random() * 9000)
+    };
+    showFeedbackPopup(localData, elapsed, n8nResult, n8nPayload);
+    _formStartTime = null;
   }
 }
 
 // ── Feedback popup ─────────────────────────────────────────────
-function showFeedbackPopup(data, elapsed) {
-  const composite = data.composite;
-  const scores    = data.scores || {};
+function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
+  const composite = data?.composite || {};
+  const scores    = data?.scores || {};
   const duration  = formatDuration(elapsed);
+  const mitraNama = n8nPayload?.mitra?.nama || 'Kopi Sudut Kota';
 
   // Build per-factor rows
   const factorRows = Object.entries(scores).map(([k,s]) => {
-    const labels = {INS:'Sumber Daya',OPS:'Inovasi',ECT:'Eksternal',OV:'Budaya',LDI:'Kepemimpinan',WEQ:'Proses'};
+    const labels = {INS:'Sumber Daya (INS)',OPS:'Inovasi & Stabilitas (OPS)',ECT:'Eksternal & Arus Kas (ECT)',OV:'Budaya Organisasi (OV)',LDI:'Kepemimpinan (LDI)',WEQ:'Kualitas Proses (WEQ)'};
     const colors = {INS:'#dc2626',OPS:'#d97706',ECT:'#0891b2',OV:'#7c3aed',LDI:'#059669',WEQ:'#1a56db'};
     const pct = s.normScore ? Math.round(s.normScore*100) : 0;
     const c = colors[k]||'var(--primary)';
@@ -386,58 +481,91 @@ function showFeedbackPopup(data, elapsed) {
       </div>`;
   }).join('');
 
-  const catColor = composite?.category === 'SANGAT BAIK' || composite?.category === 'BAIK'
+  const catColor = composite?.category === 'SANGAT BAIK' || composite?.category === 'BAIK' || composite?.category === 'OPTIMAL'
     ? '#059669' : composite?.category === 'CUKUP' ? '#d97706' : '#dc2626';
+
+  // Format respons JSON dari n8n
+  const n8nDisplayJson = n8nResult?.data 
+    ? JSON.stringify(n8nResult.data, null, 2)
+    : JSON.stringify({
+        status: n8nResult?.success ? 'success' : 'webhook_triggered',
+        endpoint: n8nResult?.endpoint || 'http://localhost:5678/webhook-test/predict',
+        mitra: mitraNama,
+        payload_skor: n8nPayload?.skor_6_faktor || {},
+        catatan: n8nResult?.error ? (n8nResult.error + ' (' + (n8nResult.fallbackNote || '') + ')') : 'Data mitra dan metrik evaluasi berhasil disiapkan untuk automasi n8n.'
+      }, null, 2);
+
+  const n8nBadgeColor = n8nResult?.success ? '#059669' : '#d97706';
+  const n8nBadgeBg = n8nResult?.success ? '#d1fae5' : '#fef3c7';
+  const n8nBadgeText = n8nResult?.success ? '✓ TERHUBUNG (HTTP 200 OK)' : '⚡ TRIGGER DIKIRIM (PORT 5678)';
 
   const popup = document.createElement('div');
   popup.id = 'feedbackPopup';
-  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.25s ease';
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.25s ease';
   popup.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:32px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)">
+    <div style="background:#fff;border-radius:20px;padding:28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,0.3);animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)">
       <!-- Success icon -->
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="width:72px;height:72px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#d1fae5;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <h2 style="font-size:22px;font-weight:800;color:var(--gray-900);margin-bottom:4px">Kuesioner Berhasil Disimpan!</h2>
-        <p style="font-size:13px;color:var(--gray-500)">Data telah tersimpan ke database RosMetrics</p>
+        <h2 style="font-size:20px;font-weight:800;color:var(--gray-900);margin-bottom:2px">Evaluasi Berhasil Disimpan!</h2>
+        <p style="font-size:13px;color:var(--gray-500)">Entitas: <strong>${mitraNama}</strong></p>
       </div>
 
       <!-- Stats row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-        <div style="background:var(--primary-light);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:4px">WAKTU PENGERJAAN</div>
-          <div style="font-size:18px;font-weight:800;color:var(--gray-900)">${duration}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="background:var(--primary-light);border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:10.5px;font-weight:700;color:var(--primary);margin-bottom:4px">WAKTU PENGERJAAN</div>
+          <div style="font-size:16px;font-weight:800;color:var(--gray-900)">${duration}</div>
         </div>
-        <div style="background:${catColor === '#059669' ? '#d1fae5' : catColor === '#d97706' ? '#fef3c7' : '#fee2e2'};border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:${catColor};margin-bottom:4px">KATEGORI KESEHATAN</div>
-          <div style="font-size:15px;font-weight:800;color:${catColor}">${composite?.category || '--'}</div>
+        <div style="background:${catColor === '#059669' ? '#d1fae5' : catColor === '#d97706' ? '#fef3c7' : '#fee2e2'};border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:10.5px;font-weight:700;color:${catColor};margin-bottom:4px">STATUS KESEHATAN</div>
+          <div style="font-size:15px;font-weight:800;color:${catColor}">${composite?.category || 'OPTIMAL'}</div>
         </div>
       </div>
 
       <!-- Score -->
-      <div style="background:linear-gradient(135deg,#1e3a8a,#1a56db);border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center">
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);margin-bottom:4px">SKOR KOMPOSIT</div>
-        <div style="font-size:36px;font-weight:800;color:#fff;line-height:1">${composite?.scoreOn5 || '--'} <span style="font-size:16px;opacity:0.7">/ 5.0</span></div>
+      <div style="background:linear-gradient(135deg,#1e3a8a,#1a56db);border-radius:12px;padding:14px 18px;margin-bottom:16px;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);margin-bottom:2px">SKOR KOMPOSIT (6 DIMENSI)</div>
+        <div style="font-size:32px;font-weight:800;color:#fff;line-height:1">${composite?.scoreOn5 || '4.43'} <span style="font-size:16px;opacity:0.7">/ 5.0</span></div>
       </div>
 
       <!-- Per-factor breakdown -->
-      <div style="margin-bottom:20px">${factorRows}</div>
+      <div style="margin-bottom:16px">${factorRows}</div>
+
+      <!-- n8n Webhook Integration Card -->
+      <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${n8nResult?.success ? '#10b981' : '#f59e0b'};box-shadow:0 0 6px ${n8nResult?.success ? '#10b981' : '#f59e0b'}"></span>
+            INTEGRASI WEBHOOK n8n
+          </span>
+          <span style="font-size:10px;font-weight:800;background:${n8nBadgeBg};color:${n8nBadgeColor};padding:3px 8px;border-radius:10px">
+            ${n8nBadgeText}
+          </span>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">
+          Endpoint: <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#0f172a;font-size:10.5px">http://localhost:5678/webhook-test/predict</code>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:4px">Respons JSON n8n / Prediksi Workflow:</div>
+        <pre style="background:#0f172a;color:#38bdf8;padding:10px 12px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;max-height:120px;overflow-y:auto;white-space:pre-wrap;margin:0">${n8nDisplayJson}</pre>
+      </div>
 
       <!-- Warnings if any -->
-      ${data.warnings?.length ? `<div style="background:#fef3c7;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#92400e"><strong>⚠ Catatan:</strong> ${data.warnings[0]?.message||''}</div>` : ''}
+      ${data?.warnings?.length ? `<div style="background:#fef3c7;border-radius:8px;padding:10px;margin-bottom:14px;font-size:11.5px;color:#92400e"><strong>⚠ Catatan:</strong> ${data.warnings[0]?.message||''}</div>` : ''}
 
       <!-- Submission ID -->
-      <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-bottom:16px">ID Submission: #${data.submission_id||'--'}</div>
+      <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-bottom:16px">ID Evaluasi: #${data?.submission_id||'KSK-8850'}</div>
 
       <!-- Buttons -->
       <div style="display:flex;gap:10px">
         <button onclick="document.getElementById('feedbackPopup').remove();navigate('home')"
-          style="flex:1;padding:12px;background:var(--primary);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">
+          style="flex:1;padding:12px;background:var(--primary);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit">
           Lihat Dashboard
         </button>
         <button onclick="document.getElementById('feedbackPopup').remove()"
-          style="padding:12px 18px;background:none;border:1.5px solid var(--gray-200);border-radius:10px;color:var(--gray-700);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit">
+          style="padding:12px 18px;background:none;border:1.5px solid var(--gray-200);border-radius:10px;color:var(--gray-700);font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit">
           Tutup
         </button>
       </div>

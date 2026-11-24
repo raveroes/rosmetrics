@@ -229,6 +229,116 @@
 .hero-stat-num { color: #fff; font: 500 clamp(17px, 2vw, 23px)/1.2 "IBM Plex Mono", monospace; letter-spacing: -.06em; }
 .hero-stat-label { margin-top: 7px; color: var(--landing-muted); font: 400 9px/1.4 "IBM Plex Mono", monospace; }
 
+/* ===== CASE STUDY PARTNER CARD (KOPI SUDUT KOTA) ===== */
+.case-study-card {
+  margin-top: 28px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--landing-border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  animation: landing-rise .85s ease both;
+  transition: transform .25s ease, border-color .25s ease;
+}
+.case-study-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(201, 244, 107, 0.35);
+}
+.case-study-left {
+  flex: 1;
+}
+.case-study-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 10px/1 "IBM Plex Mono", monospace;
+  color: var(--landing-primary);
+  background: rgba(201, 244, 107, 0.1);
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(201, 244, 107, 0.2);
+  margin-bottom: 10px;
+}
+.case-study-badge .badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--landing-primary);
+  box-shadow: 0 0 6px var(--landing-primary);
+}
+.case-study-name {
+  margin: 0 0 6px;
+  color: #fff;
+  font: 700 18px/1.2 "Plus Jakarta Sans", sans-serif;
+  letter-spacing: -0.02em;
+}
+.case-study-quote {
+  margin: 0;
+  color: #d1d5db;
+  font: italic 400 13.5px/1.55 "Instrument Serif", Georgia, serif;
+}
+.case-study-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 130px;
+  padding-left: 20px;
+  border-left: 1px solid var(--landing-border);
+}
+.case-study-metric-label {
+  font: 600 9px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  color: var(--landing-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.case-study-score {
+  font: 700 36px/1 "IBM Plex Mono", monospace;
+  color: #fff;
+  letter-spacing: -0.05em;
+}
+.case-study-score span {
+  font-size: 20px;
+  color: var(--landing-primary);
+}
+.case-study-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font: 700 11px "IBM Plex Mono", monospace;
+  color: #34d399;
+}
+.case-study-status .status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+@media (max-width: 640px) {
+  .case-study-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .case-study-right {
+    align-items: flex-start;
+    text-align: left;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid var(--landing-border);
+    padding-top: 12px;
+    width: 100%;
+  }
+}
+
 .hero-visual {
   position: relative; display: grid; place-items: center; min-height: 420px;
   animation: landing-rise .9s .12s both;

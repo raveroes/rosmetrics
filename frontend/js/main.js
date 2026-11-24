@@ -203,7 +203,27 @@ async function loadUmkmData() {
   }
   
   isFetchingUmkm = true;
-  AppState.umkmData = [];
+  AppState.umkmData = [
+    {
+      id: '001',
+      nama: 'Kopi Sudut Kota',
+      lokasi: 'Depok',
+      sektor: 'Makanan & Minuman',
+      omzet: '48Jt',
+      skor: 89, // Indeks Kesehatan 88.5
+      faktor: 'Kekuatan: Operasional',
+      rek: 'Optimalisasi Stok & Arus Kas',
+      isNew: false,
+      scores: {
+        ov: 4.5,
+        ldi: 4.4,
+        ins: 4.2,
+        ops: 4.6,
+        weq: 4.5,
+        ect: 4.4
+      }
+    }
+  ];
   try {
     const res = await fetch('data_asli.csv');
     if (res.ok) {
@@ -232,7 +252,7 @@ async function loadUmkmData() {
           if (cols.length < 10) continue;
           
           const rawId = cols[0];
-          const intId = parseInt(rawId) || i;
+          const intId = (parseInt(rawId) || i) + 1; // Geser setelah ID 001 Kopi Sudut Kota
           const idStr = String(intId).padStart(3, '0');
           
           const indCode = cols[3];
@@ -526,41 +546,41 @@ function exportData() {
 function showProtokol(jenis) {
   const protokols = {
     ins: {
-      title: 'Protokol: Sesuaikan Titrasi INS',
+      title: 'Protokol: Optimalisasi Alokasi Sumber Daya (INS)',
       priority: 'PRIORITAS TINGGI',
       color: '#dc2626',
       steps: [
-        'Lakukan audit sumber daya kelembagaan dalam 24 jam',
-        'Identifikasi gap antara kebutuhan dan ketersediaan NIB',
-        'Jadwalkan konsultasi dengan Dinas Koperasi setempat',
-        'Susun roadmap pengajuan bantuan pendanaan pemerintah',
-        'Monitor progress setiap 2 minggu',
+        'Lakukan audit sumber daya kelembagaan & legalitas (NIB) dalam 24 jam',
+        'Identifikasi gap antara kebutuhan modal kerja dan ketersediaan dana',
+        'Jadwalkan konsultasi dengan Dinas Koperasi & UMKM setempat',
+        'Susun roadmap pengajuan bantuan pendanaan dan kemitraan',
+        'Monitor progress efisiensi aset setiap 2 minggu',
       ],
       eta: '7 hari',
     },
     ect: {
-      title: 'Protokol: Penyelarasan Siklus ECT',
+      title: 'Protokol: Penyelarasan Arus Kas & Pasar (ECT)',
       priority: 'PRIORITAS SEDANG',
       color: '#d97706',
       steps: [
-        'Analisis konektivitas pasar saat ini vs benchmark industri',
-        'Mapping pelanggan potensial di segmen baru',
-        'Evaluasi struktur utang dan arus kas triwulan',
-        'Buat strategi penetrasi pasar digital',
-        'Review bulanan dengan tim manajemen',
+        'Analisis konektivitas pasar saat ini vs benchmark industri F&B/Retail',
+        'Mapping pelanggan potensial di segmen cabang dan kanal baru',
+        'Evaluasi struktur utang, rasio arus kas operasional, dan modal kerja',
+        'Buat strategi penetrasi pasar digital dan retensi pelanggan',
+        'Review bulanan performa cabang bersama manajemen',
       ],
       eta: '48 jam',
     },
     bio: {
-      title: 'Protokol: Cek Sinkronisasi Biometrik',
+      title: 'Protokol: Validasi Metrik Operasional',
       priority: 'PEMELIHARAAN',
       color: '#059669',
       steps: [
-        'Validasi data periferal standar organisasi',
-        'Pastikan semua baseline klinis optimal',
-        'Dokumentasi kondisi saat ini untuk arsip',
-        'Jadwalkan pemindaian rutin berikutnya',
-        'Konfirmasi tidak ada anomali baru',
+        'Validasi data stok harian dan parameter standar organisasi',
+        'Pastikan seluruh baseline operasional bisnis berada di zona optimal',
+        'Dokumentasi kondisi efisiensi saat ini untuk pembukuan',
+        'Jadwalkan evaluasi rutin metrik bulanan berikutnya',
+        'Konfirmasi tidak ada anomali arus kas baru',
       ],
       eta: 'Tervalidasi',
     },
@@ -901,7 +921,7 @@ function applyDynamicData() {
     const bestVal = parseFloat(bestScoreOn5);
     const worstVal = parseFloat(worstScoreOn5);
     const disparity = bestVal > 0 ? (((bestVal - worstVal) / bestVal) * 100).toFixed(1) : '0.0';
-    safeSet('comp-gap-text', `Penyimpangan skor antara ID ${bestUmkm.id} dan ID ${worstUmkm.id} menunjukkan disparitas standar klinis sebesar ${disparity}%.`);
+    safeSet('comp-gap-text', `Penyimpangan skor antara ID ${bestUmkm.id} dan ID ${worstUmkm.id} menunjukkan disparitas standar industri sebesar ${disparity}%.`);
   }
 
   // --- INTEGRASI SEKTOR ---
