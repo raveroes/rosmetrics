@@ -615,6 +615,26 @@ function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
       <!-- Submission ID -->
       <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-bottom:16px">ID Evaluasi: #${data?.submission_id||'KSK-8850'}</div>
 
+      <!-- Email evaluation report -->
+      <form class="evaluation-email-card" id="evaluationEmailForm">
+        <label class="evaluation-email-label" for="evaluationProfessorEmail">KIRIM HASIL EVALUASI KE EMAIL DOSEN</label>
+        <input
+          class="evaluation-email-input"
+          id="evaluationProfessorEmail"
+          name="to_email"
+          type="email"
+          autocomplete="email"
+          placeholder="nama@kampus.ac.id"
+          required
+        >
+        <p class="evaluation-email-status" id="evaluationEmailStatus" role="status" aria-live="polite">
+          Laporan skor komposit dan rincian enam dimensi akan dikirim ke alamat ini.
+        </p>
+        <button class="evaluation-email-button" id="sendEvaluationEmailButton" type="submit">
+          Kirim Hasil Evaluasi
+        </button>
+      </form>
+
       <!-- Buttons -->
       <div style="display:flex;gap:10px">
         <button onclick="document.getElementById('feedbackPopup').remove();navigate('home')"
@@ -632,6 +652,79 @@ function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
       @keyframes slideUp{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
     </style>`;
   document.body.appendChild(popup);
+  const emailForm = popup.querySelector('#evaluationEmailForm');
+  const emailStatus = popup.querySelector('#evaluationEmailStatus');
+  const emailButton = popup.querySelector('#sendEvaluationEmailButton');
+  emailForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!emailForm.reportValidity()) return;
+
+    if (!window.emailjs) {
+      emailStatus.textContent = 'Layanan email belum tersedia. Muat ulang halaman dan coba lagi.';
+      emailStatus.classList.add('is-error');
+      return;
+    }
+
+    const recipient = emailForm.elements.to_email.value.trim();
+    const n8nHealthScore = Number(n8nResult?.indeks_kesehatan ?? resData?.indeks_kesehatan);
+    const compositeScore = Number(composite?.scoreOn5);
+    const scoreForPersona = Number.isFinite(n8nHealthScore)
+      ? n8nHealthScore
+      : Number.isFinite(compositeScore) ? compositeScore * 20 : 0;
+    const skorFundamental = scoreForPersona.toFixed(1);
+    const persona = window.getPersonaExperience(Number(skorFundamental));
+    const factorScore = key => {
+      const value = scores?.[key]?.scoreOn5
+        ?? n8nPayload?.skor_6_faktor?.[key]
+        ?? resData?.skor_6_faktor?.[key]
+        ?? 0;
+      const score = Number(value);
+      return Number.isFinite(score) ? score.toFixed(2) : '0.00';
+    };
+
+    const templateParams = {
+      to_email: recipient,
+      tanggal: new Date().toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      }),
+      mitra: mitraNama,
+      skor_fundamental: skorFundamental,
+      kategori: persona.kategori,
+      status_keputusan: persona.status_keputusan,
+      persona_badge: persona.persona_badge,
+      persona_narasi: persona.persona_narasi,
+      ins: factorScore('INS'),
+      ops: factorScore('OPS'),
+      ect: factorScore('ECT'),
+      ov: factorScore('OV'),
+      ldi: factorScore('LDI'),
+      weq: factorScore('WEQ'),
+      rekomendasi_ai: persona.rekomendasi_ai,
+      langkah_1: persona.langkah_1,
+      langkah_2: persona.langkah_2,
+      langkah_3: persona.langkah_3
+    };
+
+    emailButton.disabled = true;
+    emailButton.textContent = 'Mengirim...';
+    emailStatus.classList.remove('is-error', 'is-success');
+    emailStatus.textContent = 'Sedang mengirim laporan evaluasi...';
+
+    try {
+      await window.emailjs.send('service_jghpire', 'template_4xuhc0g', templateParams);
+      emailStatus.textContent = `Laporan berhasil dikirim ke ${recipient}.`;
+      emailStatus.classList.add('is-success');
+    } catch (error) {
+      console.error('Gagal mengirim laporan evaluasi melalui EmailJS:', error);
+      emailStatus.textContent = 'Laporan gagal dikirim. Periksa alamat email dan coba lagi.';
+      emailStatus.classList.add('is-error');
+    } finally {
+      emailButton.disabled = false;
+      emailButton.textContent = 'Kirim Hasil Evaluasi';
+    }
+  });
   popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
 }
 
