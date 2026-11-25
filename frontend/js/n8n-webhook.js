@@ -4,7 +4,7 @@
  */
 
 // Endpoint lokal testing/development
-const N8N_WEBHOOK_URL_TEST = 'http://localhost:5678/webhook-test/predict';
+const N8N_WEBHOOK_URL_TEST = 'http://localhost:5678/webhook/predict';
 
 // Opsi endpoint production (aktifkan saat workflow n8n sudah dideploy/active):
 // const N8N_WEBHOOK_URL_PROD = 'http://localhost:5678/webhook/predict';
