@@ -394,7 +394,7 @@ async function saveEvaluasi() {
       n8nResult = await window.kirimKeN8n(n8nPayload);
     } catch (n8nErr) {
       console.warn('Peringatan eksekusi n8n webhook:', n8nErr);
-      n8nResult = { success: false, error: n8nErr.message, endpoint: 'http://localhost:5678/webhook-test/predict' };
+      n8nResult = { error: true, message: n8nErr.message, endpoint: 'http://localhost:5678/webhook-test/predict' };
     }
   }
 
@@ -484,20 +484,27 @@ function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
   const catColor = composite?.category === 'SANGAT BAIK' || composite?.category === 'BAIK' || composite?.category === 'OPTIMAL'
     ? '#059669' : composite?.category === 'CUKUP' ? '#d97706' : '#dc2626';
 
-  // Format respons JSON dari n8n
-  const n8nDisplayJson = n8nResult?.data 
-    ? JSON.stringify(n8nResult.data, null, 2)
-    : JSON.stringify({
-        status: n8nResult?.success ? 'success' : 'webhook_triggered',
-        endpoint: n8nResult?.endpoint || 'http://localhost:5678/webhook-test/predict',
-        mitra: mitraNama,
-        payload_skor: n8nPayload?.skor_6_faktor || {},
-        catatan: n8nResult?.error ? (n8nResult.error + ' (' + (n8nResult.fallbackNote || '') + ')') : 'Data mitra dan metrik evaluasi berhasil disiapkan untuk automasi n8n.'
-      }, null, 2);
+  // Format respons JSON dari n8n (menampilkan langsung status_keputusan & rekomendasi_ai)
+  const isN8nSuccess = Boolean(n8nResult && !n8nResult.error);
+  let n8nDisplayJson = '';
 
-  const n8nBadgeColor = n8nResult?.success ? '#059669' : '#d97706';
-  const n8nBadgeBg = n8nResult?.success ? '#d1fae5' : '#fef3c7';
-  const n8nBadgeText = n8nResult?.success ? '✓ TERHUBUNG (HTTP 200 OK)' : '⚡ TRIGGER DIKIRIM (PORT 5678)';
+  if (isN8nSuccess) {
+    const directData = (n8nResult && typeof n8nResult === 'object' && n8nResult.data !== undefined)
+      ? n8nResult.data
+      : n8nResult;
+    n8nDisplayJson = JSON.stringify(directData, null, 2);
+  } else {
+    n8nDisplayJson = JSON.stringify(n8nResult || {
+      status: 'webhook_standby_or_offline',
+      endpoint: 'http://localhost:5678/webhook-test/predict',
+      mitra: mitraNama,
+      catatan: 'Belum ada respon dari n8n. Pastikan n8n berjalan dan alur test webhook mendengarkan request.'
+    }, null, 2);
+  }
+
+  const n8nBadgeColor = isN8nSuccess ? '#059669' : '#d97706';
+  const n8nBadgeBg = isN8nSuccess ? '#d1fae5' : '#fef3c7';
+  const n8nBadgeText = isN8nSuccess ? '✓ TERHUBUNG (HTTP 200 OK)' : '⚡ TRIGGER STANDBY (PORT 5678)';
 
   const popup = document.createElement('div');
   popup.id = 'feedbackPopup';

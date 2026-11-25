@@ -23,7 +23,7 @@ async function kirimKeN8n(payload) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
 
-    const res = await fetch(N8N_ENDPOINT, {
+    const response = await fetch(N8N_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,31 +35,30 @@ async function kirimKeN8n(payload) {
 
     clearTimeout(timeout);
 
-    let resData;
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      resData = await res.json();
+    if (response.ok) {
+      const n8nResult = await response.json();
+      console.log('[RosMetrics <- n8n] Respon webhook berhasil (HTTP 200 OK):', n8nResult);
+      return n8nResult;
     } else {
-      const text = await res.text();
+      let errorData;
       try {
-        resData = JSON.parse(text);
-      } catch (err) {
-        resData = { message: text || 'Webhook berhasil diterima oleh n8n' };
+        errorData = await response.json();
+      } catch (e) {
+        errorData = await response.text();
       }
+      console.warn('[RosMetrics <- n8n] Respon webhook error (status non-200):', response.status, errorData);
+      return {
+        error: true,
+        status: response.status,
+        message: errorData,
+        endpoint: N8N_ENDPOINT
+      };
     }
-
-    console.log('[RosMetrics <- n8n] Respon webhook diterima:', resData);
-    return {
-      success: res.ok,
-      status: res.status,
-      data: resData,
-      endpoint: N8N_ENDPOINT
-    };
   } catch (err) {
     console.warn('[RosMetrics -> n8n] Peringatan koneksi n8n webhook:', err);
     return {
-      success: false,
-      error: err.name === 'AbortError' ? 'Koneksi ke n8n webhook timeout (7s)' : err.message,
+      error: true,
+      message: err.name === 'AbortError' ? 'Koneksi ke n8n webhook timeout (7s)' : err.message,
       endpoint: N8N_ENDPOINT,
       fallbackNote: 'Webhook n8n lokal belum aktif di http://localhost:5678/webhook-test/predict atau belum menekan Listen for Test Event.'
     };
