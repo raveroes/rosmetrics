@@ -394,7 +394,7 @@ async function saveEvaluasi() {
       n8nResult = await window.kirimKeN8n(n8nPayload);
     } catch (n8nErr) {
       console.warn('Peringatan eksekusi n8n webhook:', n8nErr);
-      n8nResult = { error: true, message: n8nErr.message, endpoint: 'http://localhost:5678/webhook-test/predict' };
+      n8nResult = { error: true, message: n8nErr.message, endpoint: 'http://localhost:5678/webhook/predict' };
     }
   }
 
@@ -488,23 +488,52 @@ function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
   const isN8nSuccess = Boolean(n8nResult && !n8nResult.error);
   let n8nDisplayJson = '';
 
+  const resData = (Array.isArray(n8nResult) && n8nResult.length > 0)
+    ? n8nResult[0]
+    : (n8nResult && typeof n8nResult === 'object' && n8nResult.data !== undefined ? n8nResult.data : n8nResult);
+
   if (isN8nSuccess) {
-    const directData = (n8nResult && typeof n8nResult === 'object' && n8nResult.data !== undefined)
-      ? n8nResult.data
-      : n8nResult;
-    n8nDisplayJson = JSON.stringify(directData, null, 2);
+    n8nDisplayJson = JSON.stringify(resData, null, 2);
   } else {
     n8nDisplayJson = JSON.stringify(n8nResult || {
       status: 'webhook_standby_or_offline',
-      endpoint: 'http://localhost:5678/webhook-test/predict',
+      endpoint: 'http://localhost:5678/webhook/predict',
       mitra: mitraNama,
-      catatan: 'Belum ada respon dari n8n. Pastikan n8n berjalan dan alur test webhook mendengarkan request.'
+      catatan: 'Belum ada respon dari n8n. Pastikan n8n berjalan dan alur webhook mendengarkan request.'
     }, null, 2);
   }
 
   const n8nBadgeColor = isN8nSuccess ? '#059669' : '#d97706';
   const n8nBadgeBg = isN8nSuccess ? '#d1fae5' : '#fef3c7';
   const n8nBadgeText = isN8nSuccess ? '✓ TERHUBUNG (HTTP 200 OK)' : '⚡ TRIGGER STANDBY (PORT 5678)';
+
+  // Ekstraksi data prediksi AI dari n8n jika tersedia
+  const statusKeputusan = resData?.status_keputusan || '';
+  const rekomendasiAi = resData?.rekomendasi_ai || '';
+  const kategoriAi = resData?.kategori || resData?.kategori_keputusan || '';
+
+  let aiBadgeBg = '#dbeafe';
+  let aiBadgeColor = '#1e40af';
+  let aiBadgeBorder = '#bfdbfe';
+  let aiStatusBorderColor = '#3b82f6';
+
+  const statusUpper = (statusKeputusan || '').toUpperCase();
+  if (statusUpper.includes('EKSPANSI') || statusUpper.includes('OPTIMAL') || statusUpper.includes('BAIK') || statusUpper.includes('LAYAK')) {
+    aiBadgeBg = '#d1fae5';
+    aiBadgeColor = '#065f46';
+    aiBadgeBorder = '#a7f3d0';
+    aiStatusBorderColor = '#10b981';
+  } else if (statusUpper.includes('STABIL') || statusUpper.includes('CUKUP') || statusUpper.includes('WASPADA')) {
+    aiBadgeBg = '#fef3c7';
+    aiBadgeColor = '#92400e';
+    aiBadgeBorder = '#fde68a';
+    aiStatusBorderColor = '#f59e0b';
+  } else if (statusUpper.includes('INTERVENSI') || statusUpper.includes('PERHATIAN') || statusUpper.includes('BURUK') || statusUpper.includes('BAHAYA') || statusUpper.includes('KRITIS')) {
+    aiBadgeBg = '#fee2e2';
+    aiBadgeColor = '#991b1b';
+    aiBadgeBorder = '#fecaca';
+    aiStatusBorderColor = '#ef4444';
+  }
 
   const popup = document.createElement('div');
   popup.id = 'feedbackPopup';
@@ -552,11 +581,32 @@ function showFeedbackPopup(data, elapsed, n8nResult, n8nPayload) {
             ${n8nBadgeText}
           </span>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-bottom:8px">
-          Endpoint: <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#0f172a;font-size:10.5px">http://localhost:5678/webhook-test/predict</code>
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px">
+          Endpoint: <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#0f172a;font-size:10.5px">http://localhost:5678/webhook/predict</code>
         </div>
-        <div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:4px">Respons JSON n8n / Prediksi Workflow:</div>
-        <pre style="background:#0f172a;color:#38bdf8;padding:10px 12px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;max-height:120px;overflow-y:auto;white-space:pre-wrap;margin:0">${n8nDisplayJson}</pre>
+
+        ${(statusKeputusan || rekomendasiAi) ? `
+        <!-- Kartu Hasil Prediksi AI -->
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid ${aiStatusBorderColor};border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:4px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Hasil Prediksi AI
+            </span>
+            ${statusKeputusan ? `<span style="font-size:10.5px;font-weight:800;background:${aiBadgeBg};color:${aiBadgeColor};border:1px solid ${aiBadgeBorder};padding:2px 8px;border-radius:8px">${statusKeputusan}</span>` : ''}
+          </div>
+          ${kategoriAi ? `<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">Kategori: ${kategoriAi}</div>` : ''}
+          ${rekomendasiAi ? `<p style="font-size:12px;color:#334155;line-height:1.55;margin:0;background:#f8fafc;padding:8px 10px;border-radius:6px;border:1px solid #f1f5f9">${rekomendasiAi}</p>` : ''}
+        </div>
+        ` : ''}
+
+        <!-- Collapsible Raw JSON -->
+        <details style="cursor:pointer">
+          <summary style="font-size:11px;font-weight:700;color:#475569;user-select:none;padding:2px 0">
+            Lihat Respons Raw JSON (n8n)
+          </summary>
+          <pre style="background:#0f172a;color:#38bdf8;padding:10px 12px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;max-height:120px;overflow-y:auto;white-space:pre-wrap;margin:6px 0 0 0">${n8nDisplayJson}</pre>
+        </details>
       </div>
 
       <!-- Warnings if any -->

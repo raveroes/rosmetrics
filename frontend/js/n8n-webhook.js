@@ -60,7 +60,7 @@ async function kirimKeN8n(payload) {
       error: true,
       message: err.name === 'AbortError' ? 'Koneksi ke n8n webhook timeout (7s)' : err.message,
       endpoint: N8N_ENDPOINT,
-      fallbackNote: 'Webhook n8n lokal belum aktif di http://localhost:5678/webhook-test/predict atau belum menekan Listen for Test Event.'
+      fallbackNote: 'Webhook n8n lokal belum aktif di http://localhost:5678/webhook/predict atau workflow n8n belum diaktifkan.'
     };
   }
 }

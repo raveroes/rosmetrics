@@ -446,9 +446,7 @@ async function handleSubmit(req: Request): Promise<Response> {
   const body = await bodyJson(req);
   const role = String(auth.role);
 
-  // Satu user hanya boleh submit sekali
-  const already = await sql`select id from submissions where user_id = ${auth.user_id} limit 1`;
-  if (already.length) return respond(false, null, "Anda hanya dapat mengisi kuesioner sekali.", 403);
+  // Mendukung pengiriman berulang dari satu akun yang sama untuk keperluan demo (insert berulang diizinkan)
 
   const submitData = {
     ...body,
@@ -597,7 +595,7 @@ async function handleSubmit(req: Request): Promise<Response> {
 
   return respond(true, {
     submission_id: submissionId, scores: scoresOut, composite, warnings: result.warnings,
-  }, "Formulir berhasil disimpan.");
+  }, "Formulir berhasil disimpan.", 200);
 }
 
 // ── GET dashboard & factor_averages ───────────────────────────
